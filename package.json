@@ -1,0 +1,16 @@
+{
+  "name": "pi-codex-status",
+  "version": "0.1.0",
+  "description": "OpenAI Codex status and rate limits extension for Pi",
+  "main": "./src/index.ts",
+  "type": "module",
+  "license": "MIT",
+  "author": "carraes",
+  "files": [
+    "src"
+  ],
+  "peerDependencies": {
+    "@mariozechner/pi-ai": ">=0.49.0",
+    "@mariozechner/pi-coding-agent": ">=0.49.0"
+  }
+}
