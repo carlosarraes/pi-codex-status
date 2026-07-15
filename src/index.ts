@@ -2,6 +2,13 @@ import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-c
 import { BorderedLoader } from "@earendil-works/pi-coding-agent";
 import { type Component, Key, matchesKey, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
+import {
+	buildResetCreditsView,
+	fetchResetCreditDetails,
+	formatResetCredits,
+	type ResetCreditsView,
+} from "./reset-credits.ts";
+
 type RateLimitWindow = {
 	used_percent: number;
 	limit_window_seconds: number;
@@ -18,6 +25,9 @@ type RateLimitDetails = {
 
 type UsageResponse = {
 	plan_type: string;
+	rate_limit_reset_credits?: {
+		available_count: number;
+	} | null;
 	rate_limit?: RateLimitDetails | null;
 	additional_rate_limits?: Array<{
 		metered_feature: string;
@@ -32,6 +42,7 @@ type StatusData = {
 	email?: string;
 	planType: string;
 	usage: UsageResponse;
+	resetCredits: ResetCreditsView | null;
 };
 
 function decodeJwt(token: string): Record<string, unknown> | null {
@@ -145,6 +156,15 @@ class StatusComponent implements Component {
 		}
 		lines.push("");
 
+		if (d.resetCredits) {
+			const resetText = formatResetCredits(d.resetCredits);
+			lines.push(label("Usage resets:", resetText.summary));
+			for (const detail of resetText.details) {
+				lines.push(label("", fg("dim", detail)));
+			}
+			lines.push("");
+		}
+
 		const addRateLimits = (details: RateLimitDetails | null | undefined, heading?: string) => {
 			if (!details) return;
 			if (heading) {
@@ -231,7 +251,10 @@ export default function statusExtension(pi: ExtensionAPI) {
 					const accountId = (cred as Record<string, unknown>).accountId as string | undefined;
 					if (!accountId) throw new Error("No accountId in credentials");
 
-					const usage = await fetchUsage(token, accountId);
+					const [usage, resetCreditDetails] = await Promise.all([
+						fetchUsage(token, accountId),
+						fetchResetCreditDetails(token, accountId),
+					]);
 					const jwt = decodeJwt(token);
 					const email = (jwt?.email as string) ?? undefined;
 
@@ -247,6 +270,10 @@ export default function statusExtension(pi: ExtensionAPI) {
 						email,
 						planType: usage.plan_type,
 						usage,
+						resetCredits: buildResetCreditsView(
+							usage.rate_limit_reset_credits?.available_count,
+							resetCreditDetails,
+						),
 					};
 				};
 

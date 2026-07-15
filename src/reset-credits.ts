@@ -106,3 +106,33 @@ export function buildResetCreditsView(
 		missingDetailCount: Math.max(0, details.availableCount - credits.length),
 	};
 }
+
+export type ResetCreditsText = {
+	summary: string;
+	details: string[];
+};
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function formatExpiry(expiry: ResetCreditExpiry): string {
+	if (expiry.kind === "never") return "does not expire";
+	if (expiry.kind === "unavailable") return "expiry unavailable";
+
+	const date = new Date(expiry.timestamp);
+	if (!Number.isFinite(date.getTime())) return "expiry unavailable";
+	const hours = date.getHours().toString().padStart(2, "0");
+	const minutes = date.getMinutes().toString().padStart(2, "0");
+	return `expires ${hours}:${minutes} on ${date.getDate()} ${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
+}
+
+export function formatResetCredits(view: ResetCreditsView): ResetCreditsText {
+	const summary = !view.detailsAvailable && view.availableCount > 0
+		? `${view.availableCount} available (expiry details unavailable)`
+		: `${view.availableCount} available`;
+	const details = view.credits.map((expiry, index) => `#${index + 1} ${formatExpiry(expiry)}`);
+	if (view.missingDetailCount > 0) {
+		const noun = view.missingDetailCount === 1 ? "detail" : "details";
+		details.push(`${view.missingDetailCount} more expiry ${noun} unavailable`);
+	}
+	return { summary, details };
+}

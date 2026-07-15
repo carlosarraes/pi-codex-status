@@ -5,6 +5,7 @@ A [Pi coding-agent](https://github.com/badlogic/pi-mono/tree/main/packages/codin
 ## What it shows
 
 - Account info (model, email, plan type)
+- Banked usage reset count and each available reset's expiry in local time
 - Rate limit usage with color-coded progress bars (green/yellow/red)
 - Reset times for each rate limit window (hourly, weekly, etc.)
 

@@ -4,6 +4,7 @@ import test from "node:test";
 import {
 	buildResetCreditsView,
 	fetchResetCreditDetails,
+	formatResetCredits,
 	type FetchLike,
 } from "../src/reset-credits.ts";
 
@@ -110,4 +111,67 @@ test("buildResetCreditsView falls back to the usage summary without inventing de
 	});
 	assert.equal(buildResetCreditsView(undefined, null), null);
 	assert.equal(buildResetCreditsView(undefined, { available_count: "3", credits: [] }), null);
+});
+
+test("formatResetCredits uses local 24-hour expiry text", () => {
+	const first = new Date(2026, 6, 18, 0, 29).getTime();
+	const second = new Date(2026, 6, 26, 23, 56).getTime();
+
+	assert.deepEqual(
+		formatResetCredits({
+			availableCount: 4,
+			detailsAvailable: true,
+			credits: [
+				{ kind: "at", timestamp: first },
+				{ kind: "at", timestamp: second },
+				{ kind: "never" },
+				{ kind: "unavailable" },
+			],
+			missingDetailCount: 0,
+		}),
+		{
+			summary: "4 available",
+			details: [
+				"#1 expires 00:29 on 18 Jul 2026",
+				"#2 expires 23:56 on 26 Jul 2026",
+				"#3 does not expire",
+				"#4 expiry unavailable",
+			],
+		},
+	);
+});
+
+test("formatResetCredits explains count-only fallback and detail mismatches", () => {
+	assert.deepEqual(
+		formatResetCredits({
+			availableCount: 2,
+			detailsAvailable: false,
+			credits: [],
+			missingDetailCount: 0,
+		}),
+		{ summary: "2 available (expiry details unavailable)", details: [] },
+	);
+
+	assert.deepEqual(
+		formatResetCredits({
+			availableCount: 3,
+			detailsAvailable: true,
+			credits: [{ kind: "never" }],
+			missingDetailCount: 2,
+		}),
+		{
+			summary: "3 available",
+			details: ["#1 does not expire", "2 more expiry details unavailable"],
+		},
+	);
+
+	assert.deepEqual(
+		formatResetCredits({
+			availableCount: 0,
+			detailsAvailable: true,
+			credits: [],
+			missingDetailCount: 0,
+		}),
+		{ summary: "0 available", details: [] },
+	);
 });
