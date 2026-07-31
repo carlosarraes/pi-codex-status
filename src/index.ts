@@ -1,6 +1,6 @@
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { BorderedLoader } from "@earendil-works/pi-coding-agent";
-import { type Component, Key, matchesKey, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import { type Component, Key, matchesKey, truncateToWidth } from "@earendil-works/pi-tui";
 
 import {
 	buildResetCreditsView,
@@ -8,6 +8,7 @@ import {
 	formatResetCredits,
 	type ResetCreditsView,
 } from "./reset-credits.ts";
+import { resolveCodexStatusAuth, type CodexStatusAuth } from "./codex-auth.ts";
 
 type RateLimitWindow = {
 	used_percent: number;
@@ -44,16 +45,6 @@ type StatusData = {
 	usage: UsageResponse;
 	resetCredits: ResetCreditsView | null;
 };
-
-function decodeJwt(token: string): Record<string, unknown> | null {
-	try {
-		const parts = token.split(".");
-		if (parts.length !== 3) return null;
-		return JSON.parse(atob(parts[1]!)) as Record<string, unknown>;
-	} catch {
-		return null;
-	}
-}
 
 function titleCase(s: string): string {
 	return s.charAt(0).toUpperCase() + s.slice(1);
@@ -233,9 +224,18 @@ export default function statusExtension(pi: ExtensionAPI) {
 				return;
 			}
 
-			const authStorage = ctx.modelRegistry.authStorage;
-			const cred = authStorage.get("openai-codex");
-			if (!cred || cred.type !== "oauth") {
+			let statusAuth: CodexStatusAuth | null;
+			try {
+				statusAuth = await resolveCodexStatusAuth(
+					() => ctx.modelRegistry.getProviderAuth("openai-codex"),
+				);
+			} catch {
+				ctx.ui.notify("Failed to resolve OpenAI Codex credentials. Use /login and try again.", "error");
+				return;
+			}
+
+			const resolvedStatusAuth = statusAuth;
+			if (!resolvedStatusAuth) {
 				ctx.ui.notify("Not logged in to OpenAI Codex. Use /login first.", "error");
 				return;
 			}
@@ -245,18 +245,12 @@ export default function statusExtension(pi: ExtensionAPI) {
 				loader.onAbort = () => done(null);
 
 				const doFetch = async () => {
-					const token = await authStorage.getApiKey("openai-codex");
-					if (!token) throw new Error("Failed to get API key");
-
-					const accountId = (cred as Record<string, unknown>).accountId as string | undefined;
-					if (!accountId) throw new Error("No accountId in credentials");
+					const { token, accountId, email } = resolvedStatusAuth;
 
 					const [usage, resetCreditDetails] = await Promise.all([
 						fetchUsage(token, accountId),
 						fetchResetCreditDetails(token, accountId),
 					]);
-					const jwt = decodeJwt(token);
-					const email = (jwt?.email as string) ?? undefined;
 
 					const homedir = process.env.HOME || process.env.USERPROFILE || "";
 					let directory = process.cwd();
