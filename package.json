@@ -1,7 +1,7 @@
 {
   "name": "pi-codex-status",
   "version": "0.1.0",
-  "description": "OpenAI Codex status and rate limits extension for Pi",
+  "description": "OpenAI Codex and OpenCode Go usage extension for Pi",
   "main": "./src/index.ts",
   "type": "module",
   "license": "MIT",
